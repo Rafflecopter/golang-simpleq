@@ -4,7 +4,7 @@ package scripts
 import "github.com/garyburd/redigo/redis"
 
 var SafePullPipe = redis.NewScript(
-	2, // number of keys
+	2, // KEYS:[from, to], ARGV:[id]
 	`local rem = redis.call("lrem", KEYS[1], -1, ARGV[1])
   if (rem ~= nil) and (rem > 0) then
     return redis.call("lpush", KEYS[2], ARGV[1])

@@ -8,17 +8,15 @@ import (
 
 // A super simple redis-backed queue
 type SimpleQ struct {
-	pool     *redis.Pool
 	conn     redis.Conn
 	key      string
 	listener *Listener
 }
 
 // Create a simpleq
-func New(pool *redis.Pool, key string) *SimpleQ {
+func New(conn redis.Conn, key string) *SimpleQ {
 	return &SimpleQ{
-		pool: pool,
-		conn: pool.Get(),
+		conn: conn,
 		key:  key,
 	}
 }
@@ -67,7 +65,7 @@ func (q *SimpleQ) Pull(el []byte) (nRemoved int64, err error) {
 // Pull an element out of the queue and push it onto another atomically
 // Note: This will push the element regardless of the return value from pull
 func (q *SimpleQ) PullPipe(q2 *SimpleQ, el []byte) (lengthQ2 int64, err error) {
-	c := q.pool.Get()
+	c := q.conn
 
 	c.Send("MULTI")
 	c.Send("LREM", q.key, -1, el)
@@ -86,7 +84,7 @@ func (q *SimpleQ) PullPipe(q2 *SimpleQ, el []byte) (lengthQ2 int64, err error) {
 // Safely pull an element out of the queue and push it onto another atomically
 // Returns 0 for non-existance in first queue, or length of second queue
 func (q *SimpleQ) SPullPipe(q2 *SimpleQ, el []byte) (result int64, err error) {
-	return redis.Int64(scripts.SafePullPipe.Do(q.pool.Get(), q.key, q2.key, el))
+	return redis.Int64(scripts.SafePullPipe.Do(q.conn, q.key, q2.key, el))
 }
 
 // Pop an element out of a queue and put it in another queue atomically
@@ -120,17 +118,17 @@ func (q *SimpleQ) List() (elements [][]byte, err error) {
 }
 
 // Create a listener that calls Pop
-func (q *SimpleQ) PopListen() *Listener {
-	return q.PopPipeListen(nil)
+func (q *SimpleQ) PopListen(conn redis.Conn) *Listener {
+	return q.PopPipeListen(conn, nil)
 }
 
 // Create a listener that calls PopPipe
-func (q *SimpleQ) PopPipeListen(q2 *SimpleQ) *Listener {
+func (q *SimpleQ) PopPipeListen(conn redis.Conn, q2 *SimpleQ) *Listener {
 	if q.listener != nil {
 		panic("SimpleQ can only have one listener")
 	}
 
-	q.listener = NewListener(q, q2)
+	q.listener = NewListener(conn, q, q2)
 
 	go func() {
 		<-q.listener.ended

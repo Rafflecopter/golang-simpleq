@@ -28,7 +28,7 @@ func extraElements(t *testing.T, l *Listener) {
 func TestBasicPopListen(t *testing.T) {
 	q := begin()
 	defer end(t, q)
-	l := q.PopListen()
+	l := q.PopListen(pool.Get())
 	onerror(t, l)
 
 	go func() {
@@ -70,7 +70,7 @@ func TestBasicPopListen(t *testing.T) {
 func TestBasicPopPipe(t *testing.T) {
   q, q2 := begin2()
   defer end(t, q, q2)
-  l := q.PopPipeListen(q2)
+  l := q.PopPipeListen(pool.Get(), q2)
   onerror(t, l)
 
   go func() {
@@ -94,7 +94,7 @@ func TestBasicPopPipe(t *testing.T) {
 func TestListenerEndTwice(t *testing.T) {
   q := begin()
   defer end(t, q)
-  l := q.PopListen()
+  l := q.PopListen(pool.Get())
   onerror(t,l)
   extraElements(t, l)
 

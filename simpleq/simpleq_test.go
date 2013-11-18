@@ -86,8 +86,8 @@ func TestBPopTimeout(t *testing.T) {
 		t.Error("Element isn't nil", el)
 	}
 
-	if time.Now().Sub(now) < time.Second {
-		t.Error("Timeout didn't last a second!")
+	if float64(time.Now().Sub(now)) < float64(time.Second) * .9 {
+		t.Error("Timeout didn't last a second!", time.Now().Sub(now))
 	}
 }
 
@@ -283,7 +283,7 @@ func strlist(b [][]byte) []string {
 }
 
 func begin() *SimpleQ {
-	q := New(pool, randKey())
+	q := New(pool.Get(), randKey())
 	q.Clear()
 	return q
 }
@@ -292,7 +292,7 @@ func begin2() (*SimpleQ, *SimpleQ) {
 }
 
 func clone(q *SimpleQ) *SimpleQ {
-	return New(pool, q.key)
+	return New(pool.Get(), q.key)
 }
 
 type ender interface {
