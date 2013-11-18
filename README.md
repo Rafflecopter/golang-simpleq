@@ -19,65 +19,72 @@ import (
 )
 
 func DoSimpleQ() {
-  conn, err := redis.Dial("tcp", ":6379")
-  if err != nil { panic(err); }
+  pool := redis.NewPool(func () (redis.Conn, error) {
+    return Dial("tcp", ":6379")
+  }, 2)
 
-  q := simpleq.New(conn, "my-simpleq")
+  q := simpleq.New(pool, "my-simpleq")
 }
 ```
 
 Operations:
 
-- `q.Push(el, cb)` Returns number of elements in queue.
-- `q.Pop(cb)` and `q.Bpop(cb)` (blocking) Returns element popped or null
-- `q.Pull(el, cb)` Pull out a specific el (the highest/oldest el in the queue to be specific if elements are repeated) from the queue. Returns number of elements removed (0 or 1).
-- `q1.Pullpipe(q2, el, cb)` Pull and push into another queue atomicly. Returns elements in second queue. (Note, that if el does not exist in q1, it will still be put into q2)
-    - `q1.Spullpipe(q2, el, cb)` is a safe version which will not insert el into q2 unless it has been successfully pulled out of q1. This is done atomically using a lua script.
-- `q1.Poppipe(q2, cb)` and `q1.Bpoppipe(q2, cb)` (blocking): Pop and push to another queue; returns popped element (also atomic).
-- `q.Clear(cb)` Clear out the queue
-- `q.List(cb)` List all elements in the queue
+- `q.Push(el)` Returns number of elements in queue.
+- `q.Pop()` and `q.BPop()` (blocking) Returns element popped or null
+- `q.Pull(el)` Pull out a specific el (the highest/oldest el in the queue to be specific if elements are repeated) from the queue. Returns number of elements removed (0 or 1).
+- `q1.PullPipe(q2, el)` Pull and push into another queue atomicly. Returns elements in second queue. (Note, that if el does not exist in q1, it will still be put into q2)
+    - `q1.SPullPipe(q2, el)` is a safe version which will not insert el into q2 unless it has been successfully pulled out of q1. This is done atomically using a lua script.
+- `q1.PopPipe(q2)` and `q1.BPopPipe(q2)` (blocking): Pop and push to another queue; returns popped element (also atomic).
+- `q.Clear()` Clear out the queue
+- `q.List()` List all elements in the queue
 
 Listeners:
 
-simpleq's can start listeners that run `Bpoppipe` or `Bpop` continuously and make callbacks when they occur. These two functions are `.Poplisten` and `.Poppipelisten`. The both accept the option:
+simpleq's can start listeners that run `BPopPipe` or `BPop` continuously and make callbacks when they occur. These two functions are `.PopListen` and `.PopPipeListen`.
 
-- `max_out` (default: 0 ~ infinity) Maximum number of callbacks allowed to be out at one time.
+_Note_: Calling listen will get another connection from the pool, allowing `.push` to still work because another connection is being blocked. Calling a listen function more than once will result in a panic, as this is not prudent.
 
-The callbacks on a message from a listener pass a done function that must be called when processing is complete. If not in the same closure, `listener.done()` and `listener.emit('done');` will suffice.
-
-_Note_: Calling listen will clone the redis connection, allowing `.push` to still work because another connection is being blocked. Calling a listen function more than once will result in a panic, as this is not prudent.
+_Note_: Unlike `node-simpleq`, the listener will not control the flow of messages. That is because the channel metaphor available in Go is a much better way to control flow using backpressure. `listener.Messages` and `listener.Errors` are buffer-less channels so by not pulling the next element off
 
 Examples below:
 
 ```golang
-listener := q.Poplisten(10)
+listener := q.PopListen()
 
 // or
-listener := q.Poppipelisten(otherq, 10);
+listener := q.PopPipeListen(otherq);
 
-// listen for errors
+// listen for messages and errors
 go func () {
-  for msg := range listener.Errors {
-    // do stuff
-  }
-}()
+  for {
+    select {
+    case err, ok := <- listener.Errors:
+      if ok {
+        panic(err)
+      }
+    case msg, ok := <- listener.Messages:
+      if ok {
+        // Do something downstream with the message
+        continue
+      }
+    }
 
-// then, with messages
-go func () {
-  for msg := range listener.Messages {
-    // do stuff
+    // Only get here if ok == false which mean's we've closed
+    break
   }
+  // Will get here on listener.End()
 }()
 
 // eventually
-ended_chan := listener.End()
-<- ended_chan
+if err := listener.End(); err != nil {
+  panic(err)
+}
 ```
 
 ## Tests
 
 ```
-go test
+go test github.com/Rafflecopter/golang-simpleq/simpleq
 ```
 
 ## License

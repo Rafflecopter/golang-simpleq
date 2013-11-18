@@ -17,74 +17,6 @@ func init() {
 	}, 10)
 }
 
-func randKey() string {
-	return "go-simpleq-test:" + rstr(8)
-}
-
-func rstr(n int) string {
-	s := make([]byte, 8)
-	for i := 0; i < n; i++ {
-		s[i] = byte(rand.Int()%26 + 97)
-	}
-	return string(s)
-}
-
-// Just easier syntax
-func b(s string) []byte {
-	return []byte(s)
-}
-
-func checkList(t *testing.T, q *SimpleQ, els ...[]byte) {
-	list, err := q.List()
-	if err != nil {
-		t.Error("Error List(): " + err.Error())
-	}
-  if len(list) == 0 && len(els) == 0 {
-    return
-  }
-	if !reflect.DeepEqual(list, els) {
-		t.Error("List isn't as it should be:", strlist(list), strlist(els))
-	}
-}
-
-func strlist(b [][]byte) []string {
-	s := make([]string, len(b))
-	for i, x := range b {
-		s[i] = string(x)
-	}
-	return s
-}
-
-func begin() *SimpleQ {
-	q := New(pool, randKey())
-	q.Clear()
-	return q
-}
-func begin2() (*SimpleQ, *SimpleQ) {
-	return begin(), begin()
-}
-
-func clone(q *SimpleQ) *SimpleQ {
-	return New(pool, q.key)
-}
-
-type ender interface {
-	End() error
-}
-
-func end(t *testing.T, qs ...ender) {
-	for _, q := range qs {
-		if err := q.End(); err != nil {
-			t.Error(err)
-		}
-	}
-}
-
-func epush(t *testing.T, q *SimpleQ, el string) {
-	if _, err := q.Push(b(el)); err != nil {
-		t.Error("Error Push(", el, "): ", err)
-	}
-}
 
 // -- Tests --
 
@@ -308,4 +240,75 @@ func TestSPullPipe(t *testing.T) {
 
 	checkList(t, q, b("tobias"))
 	checkList(t, q2, b("maybe"), b("gob"))
+}
+
+// -- Helpers --
+
+func randKey() string {
+	return "go-simpleq-test:" + rstr(8)
+}
+
+func rstr(n int) string {
+	s := make([]byte, 8)
+	for i := 0; i < n; i++ {
+		s[i] = byte(rand.Int()%26 + 97)
+	}
+	return string(s)
+}
+
+// Just easier syntax
+func b(s string) []byte {
+	return []byte(s)
+}
+
+func checkList(t *testing.T, q *SimpleQ, els ...[]byte) {
+	list, err := q.List()
+	if err != nil {
+		t.Error("Error List(): " + err.Error())
+	}
+  if len(list) == 0 && len(els) == 0 {
+    return
+  }
+	if !reflect.DeepEqual(list, els) {
+		t.Error("List isn't as it should be:", strlist(list), strlist(els))
+	}
+}
+
+func strlist(b [][]byte) []string {
+	s := make([]string, len(b))
+	for i, x := range b {
+		s[i] = string(x)
+	}
+	return s
+}
+
+func begin() *SimpleQ {
+	q := New(pool, randKey())
+	q.Clear()
+	return q
+}
+func begin2() (*SimpleQ, *SimpleQ) {
+	return begin(), begin()
+}
+
+func clone(q *SimpleQ) *SimpleQ {
+	return New(pool, q.key)
+}
+
+type ender interface {
+	End() error
+}
+
+func end(t *testing.T, qs ...ender) {
+	for _, q := range qs {
+		if err := q.End(); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func epush(t *testing.T, q *SimpleQ, el string) {
+	if _, err := q.Push(b(el)); err != nil {
+		t.Error("Error Push(", el, "): ", err)
+	}
 }
