@@ -229,8 +229,6 @@ func TestBPopPipe(t *testing.T) {
 	epush(t, q, "sparrow")
 	epush(t, q, "lives")
 
-	t.Log(pool)
-
 	if el, err := q.BPopPipe(q2, 1); err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(el, b("sparrow")) {
@@ -251,7 +249,7 @@ func TestBPopPipeTimeout(t *testing.T) {
 		t.Error("not nil?", el)
 	}
 
-	if time.Now().Sub(now) < time.Second {
+	if float64(time.Now().Sub(now)) < float64(time.Second) * .9 {
 		t.Error("Timeout didn't last a second!", time.Now().Sub(now))
 	}
 }
