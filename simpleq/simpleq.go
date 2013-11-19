@@ -47,13 +47,16 @@ func (q *SimpleQ) Pop() (el []byte, err error) {
 // Use timeout_secs = 0 to block indefinitely
 // On timeout, this DOES return an error because redigo does.
 func (q *SimpleQ) BPop(timeout_secs int) (el []byte, err error) {
-	res, err := redis.Values(q.conn.Do("BRPOP", q.key, timeout_secs))
+	res, err := q.conn.Do("BRPOP", q.key, timeout_secs)
 
-	if len(res) == 2 {
-		if bres, ok := res[1].([]byte); ok {
-			return bres, err
+	if res != nil && err == nil {
+		if arr, ok := res.([]interface{}); ok && len(arr) == 2 {
+			if bres, ok := arr[1].([]byte); ok {
+				return bres, err
+			}
 		}
 	}
+
 	return nil, err
 }
 

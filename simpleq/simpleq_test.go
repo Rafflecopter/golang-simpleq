@@ -82,8 +82,10 @@ func TestBPopTimeout(t *testing.T) {
 
 	now := time.Now()
 
-	if el, _ := q.BPop(1); el != nil {
+	if el, err := q.BPop(1); el != nil {
 		t.Error("Element isn't nil", el)
+	} else if err != nil {
+		t.Error(err)
 	}
 
 	if float64(time.Now().Sub(now)) < float64(time.Second)*.9 {
