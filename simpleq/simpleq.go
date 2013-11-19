@@ -130,7 +130,7 @@ func (q *SimpleQ) PopPipeListen(q2 *SimpleQ) *Listener {
 		panic("SimpleQ can only have one listener")
 	}
 
-	q.listener = NewListener(q.pool.Get(), q, q2)
+	q.listener = NewListener(q, q2)
 
 	go func() {
 		<-q.listener.ended

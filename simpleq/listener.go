@@ -16,9 +16,9 @@ type Listener struct {
 }
 
 // Create a new listener. Use pipeto as nil to call BPop.
-func NewListener(conn redis.Conn, q, pipeto *SimpleQ) *Listener {
+func NewListener(q, pipeto *SimpleQ) *Listener {
 	l := &Listener{
-		conn:     conn,
+		conn:     q.pool.Get(),
 		qkey:     q.key,
 		pipeto:   pipeto,
 		end:      make(chan bool),
