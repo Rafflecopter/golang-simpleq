@@ -68,43 +68,43 @@ func TestBasicPopListen(t *testing.T) {
 }
 
 func TestBasicPopPipe(t *testing.T) {
-  q, q2 := begin2()
-  defer end(t, q, q2)
-  l := q.PopPipeListen(pool.Get(), q2)
-  onerror(t, l)
+	q, q2 := begin2()
+	defer end(t, q, q2)
+	l := q.PopPipeListen(pool.Get(), q2)
+	onerror(t, l)
 
-  go func() {
-    epush(t, q, "world")
-  }()
+	go func() {
+		epush(t, q, "world")
+	}()
 
-  select {
-  case el := <-l.Elements:
-    if !reflect.DeepEqual(el, b("world")) {
-      t.Error("el isn't world?", string(el))
-    }
-  case <-time.After(50 * time.Millisecond):
-    t.Error("Timeout!")
-  }
+	select {
+	case el := <-l.Elements:
+		if !reflect.DeepEqual(el, b("world")) {
+			t.Error("el isn't world?", string(el))
+		}
+	case <-time.After(50 * time.Millisecond):
+		t.Error("Timeout!")
+	}
 
-  extraElements(t, l)
-  checkList(t, q2, b("world"))
-  checkList(t, q)
+	extraElements(t, l)
+	checkList(t, q2, b("world"))
+	checkList(t, q)
 }
 
 func TestListenerEndTwice(t *testing.T) {
-  q := begin()
-  defer end(t, q)
-  l := q.PopListen(pool.Get())
-  onerror(t,l)
-  extraElements(t, l)
+	q := begin()
+	defer end(t, q)
+	l := q.PopListen(pool.Get())
+	onerror(t, l)
+	extraElements(t, l)
 
-  if err := l.Close(); err != nil {
-    t.Error(err)
-  }
-  if q.listener != nil {
-    t.Error("q.listener isn't nil yet")
-  }
-  if err := l.Close(); err != nil {
-    t.Error(err)
-  }
+	if err := l.Close(); err != nil {
+		t.Error(err)
+	}
+	if q.listener != nil {
+		t.Error("q.listener isn't nil yet")
+	}
+	if err := l.Close(); err != nil {
+		t.Error(err)
+	}
 }

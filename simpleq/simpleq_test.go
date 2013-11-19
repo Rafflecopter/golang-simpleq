@@ -2,11 +2,11 @@ package simpleq
 
 import (
 	"github.com/garyburd/redigo/redis"
+	"io"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
-	"io"
 )
 
 var pool *redis.Pool
@@ -17,7 +17,6 @@ func init() {
 		return redis.Dial("tcp", ":6379")
 	}, 10)
 }
-
 
 // -- Tests --
 
@@ -87,7 +86,7 @@ func TestBPopTimeout(t *testing.T) {
 		t.Error("Element isn't nil", el)
 	}
 
-	if float64(time.Now().Sub(now)) < float64(time.Second) * .9 {
+	if float64(time.Now().Sub(now)) < float64(time.Second)*.9 {
 		t.Error("Timeout didn't last a second!", time.Now().Sub(now))
 	}
 }
@@ -182,7 +181,7 @@ func TestBPopPipeTimeout(t *testing.T) {
 		t.Error("not nil?", el)
 	}
 
-	if float64(time.Now().Sub(now)) < float64(time.Second) * .9 {
+	if float64(time.Now().Sub(now)) < float64(time.Second)*.9 {
 		t.Error("Timeout didn't last a second!", time.Now().Sub(now))
 	}
 }
@@ -267,9 +266,9 @@ func checkList(t *testing.T, q *SimpleQ, els ...[]byte) {
 	if err != nil {
 		t.Error("Error List(): " + err.Error())
 	}
-  if len(list) == 0 && len(els) == 0 {
-    return
-  }
+	if len(list) == 0 && len(els) == 0 {
+		return
+	}
 	if !reflect.DeepEqual(list, els) {
 		t.Error("List isn't as it should be:", strlist(list), strlist(els))
 	}

@@ -8,8 +8,8 @@ import (
 // A listener on a queue, repeatedly calling BPop or BPopPipe
 type Listener struct {
 	conn       redis.Conn
-	qkey string
-	pipeto  *SimpleQ
+	qkey       string
+	pipeto     *SimpleQ
 	end, ended chan bool
 	Elements   chan []byte
 	Errors     chan error
@@ -19,7 +19,7 @@ type Listener struct {
 func NewListener(conn redis.Conn, q, pipeto *SimpleQ) *Listener {
 	l := &Listener{
 		conn:     conn,
-		qkey:        q.key,
+		qkey:     q.key,
 		pipeto:   pipeto,
 		end:      make(chan bool),
 		ended:    make(chan bool),
