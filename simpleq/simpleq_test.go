@@ -271,7 +271,7 @@ func b(s string) []byte {
 	return []byte(s)
 }
 
-func checkList(t *testing.T, q *SimpleQ, els ...[]byte) {
+func checkList(t *testing.T, q *Queue, els ...[]byte) {
 	list, err := q.List()
 	if err != nil {
 		t.Error("Error List(): " + err.Error())
@@ -292,12 +292,12 @@ func strlist(b [][]byte) []string {
 	return s
 }
 
-func begin() *SimpleQ {
+func begin() *Queue {
 	q := New(pool, randKey())
 	q.Clear()
 	return q
 }
-func begin2() (*SimpleQ, *SimpleQ) {
+func begin2() (*Queue, *Queue) {
 	return begin(), begin()
 }
 
@@ -310,7 +310,7 @@ func end(t *testing.T, qs ...io.Closer) {
 	t.Log("After Close, redis connections are still active:", pool.ActiveCount())
 }
 
-func epush(t *testing.T, q *SimpleQ, el string) {
+func epush(t *testing.T, q *Queue, el string) {
 	if _, err := q.Push(b(el)); err != nil {
 		t.Error("Error Push(", el, "): ", err)
 	}

@@ -9,14 +9,14 @@ import (
 type Listener struct {
 	conn       redis.Conn
 	qkey       string
-	pipeto     *SimpleQ
+	pipeto     *Queue
 	end, ended chan bool
 	Elements   chan []byte
 	Errors     chan error
 }
 
 // Create a new listener. Use pipeto as nil to call BPop.
-func NewListener(q, pipeto *SimpleQ) *Listener {
+func NewListener(q, pipeto *Queue) *Listener {
 	l := &Listener{
 		conn:     q.pool.Get(),
 		qkey:     q.key,
