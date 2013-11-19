@@ -22,13 +22,13 @@ func New(conn redis.Conn, key string) *SimpleQ {
 }
 
 // End this queue
-func (q *SimpleQ) End() error {
+func (q *SimpleQ) Close() error {
 	err := q.conn.Close()
 	if err != nil {
 		return err
 	}
 	if q.listener != nil {
-		return q.listener.End()
+		return q.listener.Close()
 	}
 	return nil
 }

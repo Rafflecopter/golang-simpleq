@@ -45,7 +45,7 @@ func TestBasicPopListen(t *testing.T) {
 	}
 
 	extraElements(t, l)
-	if err := l.End(); err != nil {
+	if err := l.Close(); err != nil {
 		t.Error(err)
 	}
 
@@ -98,13 +98,13 @@ func TestListenerEndTwice(t *testing.T) {
   onerror(t,l)
   extraElements(t, l)
 
-  if err := l.End(); err != nil {
+  if err := l.Close(); err != nil {
     t.Error(err)
   }
   if q.listener != nil {
     t.Error("q.listener isn't nil yet")
   }
-  if err := l.End(); err != nil {
+  if err := l.Close(); err != nil {
     t.Error(err)
   }
 }

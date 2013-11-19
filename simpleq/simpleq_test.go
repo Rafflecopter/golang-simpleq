@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"io"
 )
 
 var pool *redis.Pool
@@ -295,13 +296,9 @@ func clone(q *SimpleQ) *SimpleQ {
 	return New(pool.Get(), q.key)
 }
 
-type ender interface {
-	End() error
-}
-
-func end(t *testing.T, qs ...ender) {
+func end(t *testing.T, qs ...io.Closer) {
 	for _, q := range qs {
-		if err := q.End(); err != nil {
+		if err := q.Close(); err != nil {
 			t.Error(err)
 		}
 	}

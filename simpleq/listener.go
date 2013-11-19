@@ -2,12 +2,14 @@ package simpleq
 
 import (
 	"github.com/garyburd/redigo/redis"
+	"github.com/yanatan16/errorcaller"
 )
 
 // A listener on a queue, repeatedly calling BPop or BPopPipe
 type Listener struct {
 	conn       redis.Conn
-	q, pipeto  *SimpleQ
+	qkey string
+	pipeto  *SimpleQ
 	end, ended chan bool
 	Elements   chan []byte
 	Errors     chan error
@@ -17,7 +19,7 @@ type Listener struct {
 func NewListener(conn redis.Conn, q, pipeto *SimpleQ) *Listener {
 	l := &Listener{
 		conn:     conn,
-		q:        q,
+		qkey:        q.key,
 		pipeto:   pipeto,
 		end:      make(chan bool),
 		ended:    make(chan bool),
@@ -30,7 +32,7 @@ func NewListener(conn redis.Conn, q, pipeto *SimpleQ) *Listener {
 	return l
 }
 
-func (l *Listener) End() error {
+func (l *Listener) Close() error {
 	select {
 	case <-l.ended:
 		// Already ended
@@ -53,7 +55,7 @@ ListenLoop:
 		}
 
 		if el, err := l.call(); err != nil {
-			l.Errors <- err
+			l.Errors <- errorcaller.Err(err)
 		} else if el != nil {
 			l.Elements <- el
 		}
@@ -70,14 +72,14 @@ func (l *Listener) close() {
 
 func (l *Listener) call() ([]byte, error) {
 	if l.pipeto != nil {
-		res, err := l.conn.Do("BRPOPLPUSH", l.q.key, l.pipeto.key, 1)
+		res, err := l.conn.Do("BRPOPLPUSH", l.qkey, l.pipeto.key, 1)
 
 		if bres, ok := res.([]byte); ok {
 			return bres, err
 		}
 		return nil, err
 	} else {
-		res, err := l.conn.Do("BRPOP", l.q.key, 1)
+		res, err := l.conn.Do("BRPOP", l.qkey, 1)
 
 		if ares, ok := res.([]interface{}); ok && len(ares) == 2 {
 			if bres, ok := ares[1].([]byte); ok {
