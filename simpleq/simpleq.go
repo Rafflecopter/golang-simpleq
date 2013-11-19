@@ -8,25 +8,21 @@ import (
 
 // A super simple redis-backed queue
 type SimpleQ struct {
-	conn     redis.Conn
+	pool     *redis.Pool
 	key      string
 	listener *Listener
 }
 
 // Create a simpleq
-func New(conn redis.Conn, key string) *SimpleQ {
+func New(pool *redis.Pool, key string) *SimpleQ {
 	return &SimpleQ{
-		conn: conn,
+		pool: pool,
 		key:  key,
 	}
 }
 
 // End this queue
 func (q *SimpleQ) Close() error {
-	err := q.conn.Close()
-	if err != nil {
-		return err
-	}
 	if q.listener != nil {
 		return q.listener.Close()
 	}
@@ -35,19 +31,19 @@ func (q *SimpleQ) Close() error {
 
 // Push an element onto the queue
 func (q *SimpleQ) Push(el []byte) (length int64, err error) {
-	return redis.Int64(q.conn.Do("LPUSH", q.key, el))
+	return redis.Int64(q.do("LPUSH", q.key, el))
 }
 
 // Pop an element off the queue
 func (q *SimpleQ) Pop() (el []byte, err error) {
-	return redis.Bytes(q.conn.Do("RPOP", q.key))
+	return redis.Bytes(q.do("RPOP", q.key))
 }
 
 // Block and Pop an element off the queue
 // Use timeout_secs = 0 to block indefinitely
 // On timeout, this DOES return an error because redigo does.
 func (q *SimpleQ) BPop(timeout_secs int) (el []byte, err error) {
-	res, err := q.conn.Do("BRPOP", q.key, timeout_secs)
+	res, err := q.do("BRPOP", q.key, timeout_secs)
 
 	if res != nil && err == nil {
 		if arr, ok := res.([]interface{}); ok && len(arr) == 2 {
@@ -62,18 +58,19 @@ func (q *SimpleQ) BPop(timeout_secs int) (el []byte, err error) {
 
 // Pull an element out the queue (oldest if more than one)
 func (q *SimpleQ) Pull(el []byte) (nRemoved int64, err error) {
-	return redis.Int64(q.conn.Do("LREM", q.key, -1, el))
+	return redis.Int64(q.do("LREM", q.key, -1, el))
 }
 
 // Pull an element out of the queue and push it onto another atomically
 // Note: This will push the element regardless of the return value from pull
 func (q *SimpleQ) PullPipe(q2 *SimpleQ, el []byte) (lengthQ2 int64, err error) {
-	c := q.conn
+	conn := q.pool.Get()
+	defer conn.Close()
 
-	c.Send("MULTI")
-	c.Send("LREM", q.key, -1, el)
-	c.Send("LPUSH", q2.key, el)
-	res, err := redis.Values(c.Do("EXEC"))
+	conn.Send("MULTI")
+	conn.Send("LREM", q.key, -1, el)
+	conn.Send("LPUSH", q2.key, el)
+	res, err := redis.Values(conn.Do("EXEC"))
 
 	if len(res) == 2 {
 		if ires, ok := res[1].(int64); ok {
@@ -87,28 +84,30 @@ func (q *SimpleQ) PullPipe(q2 *SimpleQ, el []byte) (lengthQ2 int64, err error) {
 // Safely pull an element out of the queue and push it onto another atomically
 // Returns 0 for non-existance in first queue, or length of second queue
 func (q *SimpleQ) SPullPipe(q2 *SimpleQ, el []byte) (result int64, err error) {
-	return redis.Int64(scripts.SafePullPipe.Do(q.conn, q.key, q2.key, el))
+	conn := q.pool.Get()
+	defer conn.Close()
+	return redis.Int64(scripts.SafePullPipe.Do(conn, q.key, q2.key, el))
 }
 
 // Pop an element out of a queue and put it in another queue atomically
 func (q *SimpleQ) PopPipe(q2 *SimpleQ) (el []byte, err error) {
-	return redis.Bytes(q.conn.Do("RPOPLPUSH", q.key, q2.key))
+	return redis.Bytes(q.do("RPOPLPUSH", q.key, q2.key))
 }
 
 // Block and Pop an element out of a queue and put it in another queue atomically
 // On timeout, this doesn't return an error because redigo doesn't.
 func (q *SimpleQ) BPopPipe(q2 *SimpleQ, timeout_secs int) (el []byte, err error) {
-	return redis.Bytes(q.conn.Do("BRPOPLPUSH", q.key, q2.key, timeout_secs))
+	return redis.Bytes(q.do("BRPOPLPUSH", q.key, q2.key, timeout_secs))
 }
 
 // Clear the queue of elements
 func (q *SimpleQ) Clear() (nRemoved int64, err error) {
-	return redis.Int64(q.conn.Do("DEL", q.key))
+	return redis.Int64(q.do("DEL", q.key))
 }
 
 // List the elements in the queue
 func (q *SimpleQ) List() (elements [][]byte, err error) {
-	res, err := redis.Values(q.conn.Do("LRANGE", q.key, 0, -1))
+	res, err := redis.Values(q.do("LRANGE", q.key, 0, -1))
 	if err != nil {
 		return nil, err
 	}
@@ -121,17 +120,17 @@ func (q *SimpleQ) List() (elements [][]byte, err error) {
 }
 
 // Create a listener that calls Pop
-func (q *SimpleQ) PopListen(conn redis.Conn) *Listener {
-	return q.PopPipeListen(conn, nil)
+func (q *SimpleQ) PopListen() *Listener {
+	return q.PopPipeListen(nil)
 }
 
 // Create a listener that calls PopPipe
-func (q *SimpleQ) PopPipeListen(conn redis.Conn, q2 *SimpleQ) *Listener {
+func (q *SimpleQ) PopPipeListen(q2 *SimpleQ) *Listener {
 	if q.listener != nil {
 		panic("SimpleQ can only have one listener")
 	}
 
-	q.listener = NewListener(conn, q, q2)
+	q.listener = NewListener(q.pool.Get(), q, q2)
 
 	go func() {
 		<-q.listener.ended
@@ -139,4 +138,11 @@ func (q *SimpleQ) PopPipeListen(conn redis.Conn, q2 *SimpleQ) *Listener {
 	}()
 
 	return q.listener
+}
+
+
+func (q *SimpleQ) do(cmd string, args...interface{}) (interface{}, error) {
+	conn := q.pool.Get()
+	defer conn.Close()
+	return conn.Do(cmd, args...)
 }

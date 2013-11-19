@@ -34,8 +34,8 @@ func NewListener(conn redis.Conn, q, pipeto *SimpleQ) *Listener {
 
 func (l *Listener) Close() error {
 	select {
-	case <-l.ended:
-		// Already ended
+	case <-l.end:
+		// Already ending
 	default:
 		close(l.end)
 		<-l.ended

@@ -7,7 +7,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"fmt"
 )
+var _ = fmt.Println
 
 var pool *redis.Pool
 
@@ -61,12 +63,13 @@ func TestPop(t *testing.T) {
 
 func TestBPop(t *testing.T) {
 	q := begin()
-	qc := clone(q)
-	defer end(t, q, qc)
+	defer end(t, q)
+	done := make(chan bool)
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		epush(t, qc, "urukai")
+		epush(t, q, "urukai")
+		done <- true
 	}()
 
 	if el, err := q.BPop(1); err != nil {
@@ -74,6 +77,8 @@ func TestBPop(t *testing.T) {
 	} else if !reflect.DeepEqual(el, b("urukai")) {
 		t.Error("Element isn't urukai?", string(el))
 	}
+
+	<-done
 }
 
 func TestBPopTimeout(t *testing.T) {
@@ -146,12 +151,13 @@ func TestPopPipe(t *testing.T) {
 
 func TestBPopPipe(t *testing.T) {
 	q, q2 := begin2()
-	qc := clone(q)
-	defer end(t, q, q2, qc)
+	defer end(t, q, q2)
+	done := make(chan bool)
 
 	go func() {
 		time.Sleep(10 * time.Millisecond)
-		epush(t, qc, "jack")
+		epush(t, q, "jack")
+		done <- true
 	}()
 
 	if el, err := q.BPopPipe(q2, 1); err != nil {
@@ -171,6 +177,8 @@ func TestBPopPipe(t *testing.T) {
 
 	checkList(t, q, b("lives"))
 	checkList(t, q2, b("sparrow"), b("jack"))
+
+	<- done
 }
 
 func TestBPopPipeTimeout(t *testing.T) {
@@ -285,16 +293,12 @@ func strlist(b [][]byte) []string {
 }
 
 func begin() *SimpleQ {
-	q := New(pool.Get(), randKey())
+	q := New(pool, randKey())
 	q.Clear()
 	return q
 }
 func begin2() (*SimpleQ, *SimpleQ) {
 	return begin(), begin()
-}
-
-func clone(q *SimpleQ) *SimpleQ {
-	return New(pool.Get(), q.key)
 }
 
 func end(t *testing.T, qs ...io.Closer) {
@@ -303,6 +307,7 @@ func end(t *testing.T, qs ...io.Closer) {
 			t.Error(err)
 		}
 	}
+	t.Log("After Close, redis connections are still active:", pool.ActiveCount())
 }
 
 func epush(t *testing.T, q *SimpleQ, el string) {
