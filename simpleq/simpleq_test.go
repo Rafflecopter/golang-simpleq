@@ -1,14 +1,15 @@
 package simpleq
 
 import (
+	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"io"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
-	"fmt"
 )
+
 var _ = fmt.Println
 
 var pool *redis.Pool
@@ -178,7 +179,7 @@ func TestBPopPipe(t *testing.T) {
 	checkList(t, q, b("lives"))
 	checkList(t, q2, b("sparrow"), b("jack"))
 
-	<- done
+	<-done
 }
 
 func TestBPopPipeTimeout(t *testing.T) {

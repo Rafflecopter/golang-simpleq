@@ -140,8 +140,7 @@ func (q *Queue) PopPipeListen(q2 *Queue) *Listener {
 	return q.listener
 }
 
-
-func (q *Queue) do(cmd string, args...interface{}) (interface{}, error) {
+func (q *Queue) do(cmd string, args ...interface{}) (interface{}, error) {
 	conn := q.pool.Get()
 	defer conn.Close()
 	return conn.Do(cmd, args...)
